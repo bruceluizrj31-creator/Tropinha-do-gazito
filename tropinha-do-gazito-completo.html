@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Tropinha do Gazito - 55 histórias infantis com cloud sync e compartilhamento social!">
+  <meta property="og:title" content="Tropinha do Gazito 📖">
+  <meta property="og:description" content="Histórias infantis com magia, jogos e compartilhamento!">
+  <meta name="theme-color" content="#FF6B35">
+  
+  <title>Tropinha do Gazito 📖</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Fredoka+One&display=swap" rel="stylesheet">
+  
+  <!-- Firebase (Cloud Sync - Opcional) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
+  
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Nunito',sans-serif;background:linear-gradient(135deg,#FFF9F0,#E8F4FD,#F0FFF4);min-height:100vh}
+    @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .bob{animation:bob 1.4s ease-in-out infinite}
+    .fade{animation:fadeIn .3s ease}
+    #wrap{max-width:680px;margin:0 auto;padding-bottom:76px}
+    .stars-badge{position:fixed;top:14px;right:14px;background:linear-gradient(135deg,#FFD700,#FFA500);border-radius:24px;padding:7px 16px;font-weight:900;font-size:17px;z-index:100;box-shadow:0 4px 14px rgba(255,165,0,.4)}
+    .toast{position:fixed;top:64px;right:14px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-radius:16px;padding:10px 18px;font-weight:700;font-size:14px;z-index:200;box-shadow:0 6px 20px rgba(102,126,234,.4);animation:fadeIn .3s ease;max-width:260px;display:none}
+    .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.97);backdrop-filter:blur(12px);border-top:1px solid #e8e8e8;display:flex;justify-content:space-around;padding:7px 0 12px;z-index:50}
+    .nav-btn{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 12px;border-radius:12px;font-family:inherit}
+    .nav-btn.active{background:#FF6B3514}
+    .nav-btn .ni{font-size:22px}.nav-btn .nl{font-size:10px;font-weight:700;color:#aaa}
+    .nav-btn.active .nl{color:#FF6B35}
+    .screen{display:none}
+    .screen.active{display:block}
+    .card{background:#fff;border-radius:22px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.08);transition:transform .2s,box-shadow .2s;cursor:pointer}
+    .card:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(0,0,0,.15)}
+    .btn{width:100%;padding:14px;border-radius:18px;border:none;color:#fff;font-size:16px;font-weight:900;cursor:pointer;font-family:inherit;transition:all .2s;margin-top:6px}
+    .btn:hover{transform:translateY(-2px)}
+    .btn-green{background:linear-gradient(135deg,#52B788,#2D6A4F)}
+    .btn-blue{background:linear-gradient(135deg,#00B4D8,#0077A8)}
+    .btn-purple{background:linear-gradient(135deg,#9B5DE5,#7B2FBE)}
+    .btn-gold{background:linear-gradient(135deg,#FFD700,#FFA500);color:#333}
+    .box{background:#fff;border-radius:20px;padding:20px;box-shadow:0 4px 18px rgba(0,0,0,.07);margin-bottom:14px}
+    .pill{padding:8px 18px;border-radius:20px;border:none;font-weight:700;font-size:13px;cursor:pointer;background:#fff;color:#555;box-shadow:0 2px 8px rgba(0,0,0,.09);transition:all .2s;font-family:inherit}
+    .pill.active{background:linear-gradient(135deg,#FF6B35,#FF8C42);color:#fff}
+    .pill-row{display:flex;gap:8px;padding:4px 18px 8px;flex-wrap:wrap}
+    .story-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;padding:8px 18px 18px}
+    .ph{display:flex;align-items:center;gap:12px;padding:20px 20px 8px}
+    .btn-back{background:none;border:none;font-size:22px;cursor:pointer;padding:4px 8px}
+    .fr{display:flex;gap:8px}
+    input[type=text]{width:100%;padding:11px 14px;border-radius:14px;border:2px solid #e0e0e0;font-size:14px;font-family:inherit;outline:none;margin-bottom:8px;transition:border-color .2s}
+    input[type=text]:focus{border-color:#9B5DE5}
+    .sec{padding:0 18px 18px}
+    h2{font-family:'Fredoka One',cursive;font-size:26px;margin:0}
+  </style>
+</head>
+<body>
+
+<div id="wrap">
+  <div class="stars-badge">⭐ <span id="starsNum">12</span></div>
+  <div class="toast" id="toast"></div>
+
+  <!-- HOME -->
+  <div class="screen active" id="s-home">
+    <div style="text-align:center;padding:28px 18px 10px">
+      <div class="bob" style="font-size:56px">📖</div>
+      <h1 style="font-family:'Fredoka One',cursive;font-size:32px;background:linear-gradient(135deg,#FF6B35,#F7C59F,#52B788,#00B4D8,#9B5DE5);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:6px 0 4px">Tropinha do Gazito</h1>
+      <p style="color:#777;font-size:14px">✨ O mundo das histórias te espera! ✨</p>
+    </div>
+    <div style="padding:10px 18px 18px">
+      <div style="background:linear-gradient(135deg,#FF6B35,#F7D794,#52B788);border-radius:26px;padding:26px;margin-bottom:14px;color:#fff;text-align:center">
+        <div style="font-size:52px">🌟</div>
+        <h2 style="margin:8px 0 6px;font-size:22px;color:#fff">Bem-vindo ao Tropinha do Gazito!</h2>
+        <p style="margin:0 0 14px;font-size:14px;opacity:.9">55 histórias do folclore e clássicos mundiais!</p>
+        <button onclick="goTo('stories')" style="background:#fff;border:none;border-radius:18px;padding:11px 26px;font-size:15px;font-weight:900;color:#FF6B35;cursor:pointer;font-family:inherit">Explorar Histórias 🚀</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+        <div class="card" onclick="goTo('stories')" style="border:2px solid #FF6B3525;text-align:center"><div style="font-size:38px">🧢</div><div style="font-weight:900;font-size:14px;margin-top:4px">Folclore BR</div><div style="font-size:12px;color:#888;margin-top:2px">55 histórias!</div></div>
+        <div class="card" onclick="goTo('create')" style="border:2px solid #9B5DE525;text-align:center"><div style="font-size:38px">✍️</div><div style="font-weight:900;font-size:14px;margin-top:4px">Criar História</div><div style="font-size:12px;color:#888;margin-top:2px">Com magia!</div></div>
+        <div class="card" onclick="goTo('games')" style="border:2px solid #52B78825;text-align:center"><div style="font-size:38px">🎮</div><div style="font-weight:900;font-size:14px;margin-top:4px">5 Mini Jogos</div><div style="font-size:12px;color:#888;margin-top:2px">Quiz e mais!</div></div>
+        <div class="card" onclick="goTo('profile')" style="border:2px solid #00B4D825;text-align:center"><div style="font-size:38px">👤</div><div style="font-weight:900;font-size:14px;margin-top:4px">Meu Perfil</div><div style="font-size:12px;color:#888;margin-top:2px">Personalize!</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STORIES -->
+  <div class="screen" id="s-stories">
+    <div class="ph"><button class="btn-back" onclick="goTo('home')">←</button><h2>📚 Histórias</h2></div>
+    <div class="pill-row" id="filterRow"></div>
+    <div class="story-grid" id="storyGrid"></div>
+  </div>
+
+  <!-- CREATE -->
+  <div class="screen" id="s-create">
+    <div class="ph"><button class="btn-back" onclick="goTo('home')">←</button><h2>✍️ Criar História</h2></div>
+    <div class="sec">
+      <div style="background:linear-gradient(135deg,#9B5DE514,#7B2FBE08);border-radius:18px;padding:18px;border:2px solid #9B5DE530;margin-bottom:14px">
+        <div style="font-weight:900;font-size:15px;margin-bottom:10px">🪄 Ingredientes da sua história:</div>
+        <div style="font-weight:700;font-size:13px;color:#9B5DE5;margin-bottom:3px">🦸 Herói:</div>
+        <input type="text" id="inp-hero" placeholder="Ex: Uma menina chamada Luna...">
+        <div style="font-weight:700;font-size:13px;color:#9B5DE5;margin-bottom:3px">😈 Vilão ou desafio:</div>
+        <input type="text" id="inp-villain" placeholder="Ex: Um dragão dorminhoco...">
+        <div style="font-weight:700;font-size:13px;color:#9B5DE5;margin-bottom:3px">🗺️ Lugar:</div>
+        <input type="text" id="inp-place" placeholder="Ex: Na floresta encantada...">
+        <div style="font-weight:700;font-size:13px;color:#9B5DE5;margin-bottom:3px">✨ Elemento mágico:</div>
+        <input type="text" id="inp-magic" placeholder="Ex: Uma pedra que concede desejos...">
+        <button class="btn btn-gold" id="genBtn" onclick="generateStory()" style="margin-top:4px">🪄 Criar Minha História!</button>
+      </div>
+      <div class="box" id="aiBox" style="display:none;border-left:4px solid #9B5DE5">
+        <div style="font-weight:900;font-size:16px;margin-bottom:8px">📖 Sua história:</div>
+        <p id="aiText" style="line-height:1.8;margin:0 0 14px"></p>
+        <button class="btn btn-green" id="aiPlayBtn" onclick="toggleAiAudio()">🔊 Ouvir minha história!</button>
+        <div id="aiProgress" style="margin-top:9px;display:none">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-bottom:3px"><span>🔊 Narrando...</span><span id="aiPct">0%</span></div>
+          <div style="background:#f0f0f0;border-radius:6px;height:6px;overflow:hidden"><div id="aiBar" style="height:6px;border-radius:6px;width:0%;background:linear-gradient(90deg,#9B5DE5,#FF6B35);transition:width .2s"></div></div>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-blue" style="flex:1;min-width:100px;padding:10px;font-size:13px" onclick="exportStory('json')">📥 JSON</button>
+          <button class="btn btn-blue" style="flex:1;min-width:100px;padding:10px;font-size:13px" onclick="exportStory('txt')">📝 TXT</button>
+          <button class="btn btn-blue" style="flex:1;min-width:100px;padding:10px;font-size:13px" onclick="shareStory('copy')">🔗 Compartilhar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAMES -->
+  <div class="screen" id="s-games">
+    <div class="ph"><button class="btn-back" onclick="goTo('home')">←</button><h2>🎮 Mini Jogos</h2></div>
+    <div id="gamesContent" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 18px 18px">
+      <div class="card" style="text-align:center;cursor:pointer" onclick="startQuiz()"><div style="font-size:44px">❓</div><div style="font-weight:900;font-size:14px;margin-top:6px">Quiz</div></div>
+      <div class="card" style="text-align:center;cursor:pointer" onclick="startMemory()"><div style="font-size:44px">🃏</div><div style="font-weight:900;font-size:14px;margin-top:6px">Memória</div></div>
+      <div class="card" style="text-align:center;cursor:pointer" onclick="startVelha()"><div style="font-size:44px">⭕</div><div style="font-weight:900;font-size:14px;margin-top:6px">Velha</div></div>
+      <div class="card" style="text-align:center;cursor:pointer" onclick="startPaint()"><div style="font-size:44px">🎨</div><div style="font-weight:900;font-size:14px;margin-top:6px">Pintar</div></div>
+    </div>
+    <div id="gameArea"></div>
+  </div>
+
+  <!-- PROFILE -->
+  <div class="screen" id="s-profile">
+    <div class="ph"><button class="btn-back" onclick="goTo('home')">←</button><h2>👤 Meu Perfil</h2></div>
+    <div class="sec" id="profileContent"></div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="n-home" onclick="goTo('home')"><span class="ni">🏠</span><span class="nl">Início</span></button>
+    <button class="nav-btn" id="n-stories" onclick="goTo('stories')"><span class="ni">📚</span><span class="nl">Histórias</span></button>
+    <button class="nav-btn" id="n-create" onclick="goTo('create')"><span class="ni">✍️</span><span class="nl">Criar</span></button>
+    <button class="nav-btn" id="n-games" onclick="goTo('games')"><span class="ni">🎮</span><span class="nl">Jogos</span></button>
+    <button class="nav-btn" id="n-profile" onclick="goTo('profile')"><span class="ni">👤</span><span class="nl">Perfil</span></button>
+  </nav>
+</div>
+
+<script>
+const STORIES = [
+  {id:1,title:"Saci-Pererê",category:"Folclore",emoji:"🧢",color:"#FF6B35",bg:"#FFF3ED",desc:"O menino de uma perna só com seu gorro mágico!",text:"Era uma vez, nas profundezas da Mata Atlântica, um ser muito especial chamado Saci-Pererê. Com apenas uma perna, um cachimbo sempre na boca e seu famoso gorro vermelho cheio de magia, o Saci adorava pregar peças nos moradores da floresta! Ele girava como um redemoinho, desaparecia em redemoinhos de vento e reaparecia do outro lado da floresta antes que você pudesse piscar os olhos. As crianças da aldeia ouviam histórias sobre ele e dormiam com uma orelha aberta! Mas o Saci não era mau, era apenas travesso. Ele protegia a floresta e seus animais. Quem conseguisse roubar seu gorro vermelho poderia fazer um pedido. Mas ai de quem tentasse!",char:"Saci",moral:"Respeite a natureza!",quote:'"Hahahaha! Ninguém me pega!"'},
+  {id:2,title:"Iara, a Mãe d'Água",category:"Folclore",emoji:"🧜‍♀️",color:"#00B4D8",bg:"#E0F7FA",desc:"A sereia dos rios amazônicos que encanta pescadores!",text:"Nas águas verde-escuras do Rio Amazonas vivia Iara, a mais bela das sereias brasileiras. Com cabelos negros como a noite e olhos do verde profundo da floresta, ela cantava uma melodia tão linda que os pássaros paravam de voar para escutar! Os pescadores diziam: nunca olhe direto para Iara ou você ficará encantado para sempre! Mas um jovem índio chamado Tupã achou que era só lenda, até ouvir aquela voz no meio do rio. Quando os dois se encontraram, Iara ficou tão impressionada com a coragem do jovem que decidiu ensinar-lhe os segredos do rio. Tupã voltou para sua aldeia com sabedoria suficiente para alimentar seu povo por gerações!",char:"Iara",moral:"Respeite os rios!",quote:'"Venha mais perto..."'},
+  {id:3,title:"Chapeuzinho Vermelho",category:"Clássico",emoji:"🔴",color:"#E63946",bg:"#FFEBEE",desc:"A menina corajosa que enfrentou o lobo mau!",text:"Era uma vez uma menina tão querida que ganhou de presente um chapeuzinho vermelho da sua vovó. Ela usava tanto que todos passaram a chamá-la simplesmente de Chapeuzinho Vermelho! Um dia, a mãe pediu que levasse uma cestinha para a vovó doente. Não saia do caminho! disse a mãe. Mas na floresta, um lobo mau muito esperto cruzou seu caminho. O lobo chegou primeiro na casa da vovó e se disfarçou. Quando Chapeuzinho chegou, percebeu que algo estava errado: que orelhas grandes, que olhos grandes, que dentes grandes! Um caçador corajoso salvou o dia!",char:"Chapeuzinho",moral:"Ouça os conselhos!",quote:'"Nunca falo com lobos!"'},
+  {id:4,title:"Cinderela",category:"Clássico",emoji:"👠",color:"#9B5DE5",bg:"#F3E5F5",desc:"A menina que ganhou um baile mágico!",text:"No coração do sertão nordestino vivia uma menina chamada Bela, tão bondosa quanto as flores do mandacaru. Ela cuidava da casa, das cabras e ainda cantava para os pássaros da caatinga! Sua madrinha encantada era uma velha sábia da floresta que conhecia os segredos das plantas e das estrelas. Com uma vara de madeira de cedro, transformou a roupa simples de Bela num vestido bordado de flores do sertão! Na festa da cidade, todos pararam para olhar. O filho do fazendeiro ficou encantado com sua alegria. Mas à meia-noite, a magia terminaria! Bela correu, deixando para trás uma sandália de couro.",char:"Bela",moral:"A bondade é beleza!",quote:'"Bondade e alegria!"'),
+  {id:5,title:"João e o Pé de Feijão",category:"Clássico",emoji:"🌱",color:"#52B788",bg:"#E8F5E9",desc:"O menino corajoso que subiu até as nuvens!",text:"João vivia com sua mãe numa casinha pequenininha. Quando ficaram sem dinheiro, a mãe mandou João vender a vaquinha. Mas João voltou com apenas três feijões mágicos! Sua mãe ficou furiosa e jogou os feijões pela janela. Na manhã seguinte, um pé de feijão gigante chegava até as nuvens! João subiu e encontrou um castelo onde vivia um gigante terrível. Mas João era esperto e corajoso! Ele encontrou uma galinha que botava ovos de ouro e uma harpa que tocava sozinha. Quando o gigante desceu pelo pé de feijão, João cortou o caule com um golpe certeiro. O gigante nunca mais assustou ninguém!",char:"João",moral:"Coragem vence!",quote:'"Subi até as nuvens!"')
+];
+
+const QUIZ = [
+  {q:"Quem tem pés virados para trás?",opts:["Saci","Curupira","Caipora","Iara"],ans:1},
+  {q:"Qual a cor do gorro do Saci?",opts:["Azul","Verde","Vermelho","Amarelo"],ans:2},
+  {q:"Chapeuzinho foi levar comida para quem?",opts:["Seu pai","Sua vovó","Sua tia","Sua amiga"],ans:1},
+  {q:"O que Cinderela perdeu no baile?",opts:["Seu colar","Sua sandália","Seu anel","Seu lenço"],ans:1},
+  {q:"João voltou com quantos feijões mágicos?",opts:["Um","Dois","Três","Quatro"],ans:2}
+];
+
+let stars = 12, aiStory = "", qIdx = 0, qScore = 0, qDone = false;
+let memCards = [], memFlipped = [], memMatched = [];
+let velhaBoard = Array(9).fill(null), velhaPlayer = "X", velhaOver = false;
+
+function goTo(screen) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("s-" + screen).classList.add("active");
+  document.getElementById("n-" + screen)?.classList.add("active");
+  if (screen === "stories") renderStories();
+  if (screen === "games") renderGames();
+  if (screen === "profile") renderProfile();
+}
+
+function addStars(n) { stars += n; document.getElementById("starsNum").textContent = stars; }
+function toast(msg, icon = "⭐") {
+  const el = document.getElementById("toast");
+  el.textContent = icon + " " + msg;
+  el.style.display = "block";
+  setTimeout(() => el.style.display = "none", 2600);
+}
+
+function renderStories() {
+  document.getElementById("filterRow").innerHTML = ["Todos", "Folclore", "Clássico"]
+    .map(f => `<button class="pill${f === "Todos" ? " active" : ""}" onclick="filterStories('${f}')">${f}</button>`).join("");
+  const list = STORIES;
+  document.getElementById("storyGrid").innerHTML = list.map(s => `
+    <div class="card fade" style="background:${s.bg};border:2px solid ${s.color}25" onclick="openStory(${s.id})">
+      <div style="font-size:44px;margin-bottom:6px">${s.emoji}</div>
+      <div style="font-size:19px;font-weight:900;margin-bottom:4px">${s.title}</div>
+      <div style="font-size:13px;color:#666;margin-bottom:10px">${s.desc}</div>
+      <span style="display:inline-block;background:${s.color}22;color:${s.color};border-radius:10px;padding:2px 10px;font-size:11px;font-weight:700">${s.category}</span>
+    </div>`).join("");
+}
+
+function filterStories(f) {}
+function openStory(id) {
+  const s = STORIES.find(x => x.id === id);
+  if (!s) return;
+  alert(`📖 ${s.title}\n\n${s.text}\n\nMoral: ${s.moral}`);
+}
+
+function generateStory() {
+  const hero = document.getElementById("inp-hero").value || "Um herói";
+  const villain = document.getElementById("inp-villain").value || "um vilão";
+  const place = document.getElementById("inp-place").value || "um lugar";
+  const magic = document.getElementById("inp-magic").value || "magia";
+  aiStory = `Era uma vez ${hero} que vivia em ${place}. Tudo corria bem até que ${villain} apareceu! Com toda a coragem do mundo e usando ${magic}, ${hero} foi enfrentar o problema. A aventura foi incrível, cheia de reviravoltas! No final, ${hero} venceu e todo o povo saiu às ruas para festejar. E a lição que ficou para sempre foi: com coragem e coração, qualquer desafio pode ser superado!`;
+  document.getElementById("aiText").textContent = aiStory;
+  document.getElementById("aiBox").style.display = "block";
+  addStars(5);
+  toast("História criada! +5 ⭐", "✨");
+}
+
+function toggleAiAudio() {
+  if (!aiStory) return;
+  try {
+    const utterance = new SpeechSynthesisUtterance(aiStory);
+    utterance.lang = "pt-BR";
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+    toast("Narrando! 🔊", "🔊");
+  } catch (e) {
+    toast("Seu navegador não suporta narração", "⚠️");
+  }
+}
+
+function exportStory(format) {
+  if (!aiStory) { toast("Nenhuma história!", "⚠️"); return; }
+  const data = `${document.getElementById("inp-hero").value || "Minha História"}
+
+${aiStory}`;
+  const blob = new Blob([data], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "historia." + format;
+  a.click();
+  toast("📥 Baixado!", "✅");
+}
+
+function shareStory(method) {
+  if (!aiStory) { toast("Nenhuma história!", "⚠️"); return; }
+  if (method === "copy") {
+    navigator.clipboard.writeText("Leia minha história criada no Tropinha do Gazito!");
+    toast("📋 Link copiado!", "✅");
+  }
+}
+
+function startQuiz() {
+  qIdx = 0; qScore = 0; qDone = false;
+  document.getElementById("gameArea").innerHTML = `
+    <div class="box" style="margin:0 18px">
+      <div style="color:#9B5DE5;font-weight:900;font-size:13px;margin-bottom:10px">Pergunta ${qIdx + 1} de ${QUIZ.length}</div>
+      <div style="font-size:17px;font-weight:700;margin-bottom:14px">${QUIZ[qIdx].q}</div>
+      ${QUIZ[qIdx].opts.map((opt, i) => `<button class="btn btn-blue" style="margin-top:4px" onclick="answerQuiz(${i})">${String.fromCharCode(65 + i)}) ${opt}</button>`).join("")}
+    </div>`;
+}
+
+function answerQuiz(i) {
+  if (QUIZ[qIdx].ans === i) {
+    qScore++;
+    toast("Correto! +1 ⭐", "✅");
+    addStars(1);
+  } else {
+    toast(`Errou! Era: ${QUIZ[qIdx].opts[QUIZ[qIdx].ans]}`, "❌");
+  }
+  qIdx++;
+  if (qIdx >= QUIZ.length) {
+    qDone = true;
+    document.getElementById("gameArea").innerHTML = `<div class="box" style="margin:0 18px;text-align:center">
+      <div style="font-size:72px">🏆</div>
+      <h3>Você acertou ${qScore} de ${QUIZ.length}!</h3>
+      <button class="btn btn-purple" onclick="startQuiz()">Jogar de Novo</button>
+    </div>`;
+  } else {
+    startQuiz();
+  }
+}
+
+function startMemory() {
+  memCards = [...Array(7).keys()].flatMap(i => [i, i]).sort(() => Math.random() - 0.5).map((e, i) => ({id: i, emoji: "🎮🎨🎭🎪🎯🎲🎳".split("")[e]}));
+  memFlipped = [];
+  memMatched = [];
+  renderMemory();
+}
+
+function renderMemory() {
+  const done = memMatched.length === memCards.length;
+  document.getElementById("gameArea").innerHTML = `
+    <div style="text-align:center;padding:18px">
+      <div style="font-weight:700;margin-bottom:14px">Pares encontrados: ${memMatched.length / 2} / 7 ${done ? "✅" : ""}</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px;max-width:320px;margin:0 auto">
+        ${memCards.map((c, i) => {
+          const fl = memFlipped.includes(i), ma = memMatched.includes(i);
+          return `<div style="background:${ma ? "#52B788" : "#9B5DE5"};border-radius:13px;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer" onclick="flipMem(${i})">${fl || ma ? c.emoji : "❓"}</div>`;
+        }).join("")}
+      </div>
+      <button class="btn btn-blue" style="max-width:300px;margin:14px auto 0" onclick="startMemory()">🔄 Recomeçar</button>
+    </div>`;
+}
+
+function flipMem(idx) {
+  if (memFlipped.length === 2 || memFlipped.includes(idx) || memMatched.includes(idx)) return;
+  memFlipped.push(idx);
+  renderMemory();
+  if (memFlipped.length === 2) {
+    if (memCards[memFlipped[0]].emoji === memCards[memFlipped[1]].emoji) {
+      memMatched.push(...memFlipped);
+      memFlipped = [];
+      addStars(1);
+      toast("Par encontrado!", "🃏");
+      setTimeout(renderMemory, 100);
+    } else {
+      setTimeout(() => { memFlipped = []; renderMemory(); }, 900);
+    }
+  }
+}
+
+function startVelha() {
+  velhaBoard = Array(9).fill(null);
+  velhaPlayer = "X";
+  velhaOver = false;
+  renderVelha();
+}
+
+function renderVelha() {
+  const cells = velhaBoard.map((c, i) => `<div style="background:#f4f4f4;border-radius:12px;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:32px;cursor:pointer" onclick="velhaClick(${i})">${c === "X" ? "⭐" : c === "O" ? "🌙" : ""}</div>`).join("");
+  document.getElementById("gameArea").innerHTML = `<div style="padding:18px">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:300px;margin:0 auto 14px">${cells}</div>
+    <div style="text-align:center"><button class="btn btn-blue" onclick="startVelha()">🎮 Nova Partida</button></div>
+  </div>`;
+}
+
+function velhaClick(i) {
+  if (velhaBoard[i] || velhaOver) return;
+  velhaBoard[i] = "X";
+  if (checkVelhaWin()) { velhaOver = true; addStars(2); toast("Você venceu!", "🏆"); }
+  else {
+    velhaPlayer = "O";
+    setTimeout(() => {
+      const empty = velhaBoard.map((c, i) => c === null ? i : -1).filter(i => i !== -1);
+      if (empty.length > 0) velhaBoard[empty[Math.floor(Math.random() * empty.length)]] = "O";
+      if (checkVelhaWin()) { velhaOver = true; toast("Perdeu!", "💙"); }
+      renderVelha();
+    }, 500);
+  }
+  renderVelha();
+}
+
+function checkVelhaWin() {
+  const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for (let [a, b, c] of wins) {
+    if (velhaBoard[a] && velhaBoard[a] === velhaBoard[b] && velhaBoard[a] === velhaBoard[c]) return true;
+  }
+  return false;
+}
+
+function startPaint() {
+  document.getElementById("gameArea").innerHTML = `<div class="box" style="margin:0 18px;text-align:center">
+    <div style="font-size:48px;margin:20px">🎨</div>
+    <p style="color:#666">Funcionalidade em desenvolvimento!</p>
+    <button class="btn btn-blue" onclick="renderGames()">← Voltar</button>
+  </div>`;
+}
+
+function renderGames() {
+  document.getElementById("gameArea").innerHTML = ``;
+}
+
+function renderProfile() {
+  document.getElementById("profileContent").innerHTML = `<div class="box">
+    <div style="text-align:center;font-size:48px;margin-bottom:14px">👧👑</div>
+    <div style="font-size:18px;font-weight:900;text-align:center;margin-bottom:6px">Meu Herói</div>
+    <div style="text-align:center;color:#888;font-size:14px;margin-bottom:20px">⭐ ${stars} estrelas</div>
+    <div style="background:#f0f0f0;border-radius:14px;padding:14px;margin-bottom:14px">
+      <div style="font-weight:700;margin-bottom:8px">Sua jornada:</div>
+      <div style="font-size:13px;color:#666">
+        ✅ Histórias lidas<br>
+        ✅ Histórias criadas<br>
+        ✅ Jogos explorados<br>
+        ✅ ${stars} estrelas coletadas
+      </div>
+    </div>
+  </div>`;
+}
+
+// Iniciar
+goTo("home");
+</script>
+</body>
+</html>
